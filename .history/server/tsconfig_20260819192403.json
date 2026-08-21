@@ -18,9 +18,10 @@
     "outDir": "dist",
     "rootDir": "src",
     "noUnusedLocals": false,
+    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./src/*"
+        "src/*"
       ] // 假设你的后端源码在 server/src 目录下
     }
   },

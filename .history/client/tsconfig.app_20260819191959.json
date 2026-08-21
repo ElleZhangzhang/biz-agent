@@ -12,11 +12,12 @@
     ],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
+    "baseUrl": ".", // 设置基准路径为当前目录
     "paths": {
       "@/*": [
-        "./src/*"
-      ]
-    },
+        "src/*"
+      ] // 告诉编辑器 '@' 代表 src 目录
+    }
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

@@ -1,0 +1,41 @@
+import { Router } from "express";
+import { overview, listOrders, getOrder, createOrder, updateOrderStatus } from "@/business/system.js";
+import { OrderStatus } from "@/business/types.js";
+
+const router = Router();
+
+router.get('/overview', (req, res) => {
+    const ov = overview();
+    res.status(200).json({ ok: true, data: ov });
+});
+
+// query不像params那样属于路径的一部分，它只是查询参数，需要的话就写到路由内，不需要的话不用写
+router.get('/orders', (req, res) => {
+    const status = req.query.status as OrderStatus | undefined;
+    const orders = listOrders(status);
+    res.status(200).json({ ok: true, data: orders });
+});
+
+router.get('/orders/:id', (req, res) => {
+    const order = getOrder(req.params.id);
+    if (!order) return res.status(404).json({ ok: false, error: '订单不存在' });
+    res.status(200).json({ ok: true, order });
+});
+
+router.post("/orders", (req, res) => {
+    if (!req.body?.customerName) return res.status(400).json({ ok: false, error: '缺少 customerName' })
+
+    const r = createOrder(req.body.customerName, req.body.items);
+
+    res.status(r.ok ? 201 : 400).json(r);
+});
+
+router.patch('/orders/:id/status', (req, res) => {
+    // 变更类操作的新值放 body（{ status: 'processing' }），不是 query
+    const { status } = req.body as { status?: OrderStatus };
+    if (!status) return res.status(400).json({ ok: false, error: '缺少 status' });
+    const r = updateOrderStatus(req.params.id, status);
+    res.status(r.ok ? 200 : 400).json(r);
+});
+
+export default router;

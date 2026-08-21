@@ -3,12 +3,8 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": [
-      "ES2022"
-    ],
-    "types": [
-      "node"
-    ],
+    "lib": ["ES2022"],
+    "types": ["node"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -17,14 +13,7 @@
     "sourceMap": true,
     "outDir": "dist",
     "rootDir": "src",
-    "noUnusedLocals": false,
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ] // 假设你的后端源码在 server/src 目录下
-    }
+    "noUnusedLocals": false
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

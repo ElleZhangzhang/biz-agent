@@ -1,0 +1,29 @@
+import { Order, OrderStatus } from "@/business/types.js";
+import { seedProducts } from "@/business/seed.js";
+
+const products = seedProducts();
+const orders: Order[] = [];
+let nextOrderId = 1;
+
+export function overview() {
+    const byStatus: Record<OrderStatus, number> = {
+        'pending': 0,
+        'processing': 0,
+        'shipped': 0,
+        'completed': 0,
+        'cancelled': 0,
+    }
+    for (const o of orders) {
+        byStatus[o.status]++;
+    }
+
+    let lowStockProducts = products.filter(p => {
+        p.stock < p.restockThreshold
+    }).length;
+
+    return {
+        totalOrders: orders.length,          // 订单总数
+        byStatus: byStatus,  // 5 种状态各有多少单
+        lowStockProducts: Product[],  // 库存不足的商品
+    };
+}
