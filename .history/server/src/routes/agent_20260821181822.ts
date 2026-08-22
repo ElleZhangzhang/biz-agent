@@ -31,10 +31,7 @@ router.post('/run', async (req, res) => {
             res.write(`data: ${JSON.stringify(event)}\n\n`);
         });
         // 收尾：done 帧带最终答案，然后关连接
-        res.write(`data: ${JSON.stringify({
-            type: 'done',
-            content: answer
-        })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'done', content: answer })}\n\n`);
         res.end();
     } catch (err) {
         // 异常也按 SSE 帧发，前端能统一解析

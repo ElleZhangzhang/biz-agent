@@ -26,20 +26,19 @@ router.post('/run', async (req, res) => {
     res.flushHeaders();
 
     try {
-        // onEvent 接到 SSE 帧：每广播一次，就写一帧
-        const answer = await runAgent(prompt, decide, (event) => {
-            res.write(`data: ${JSON.stringify(event)}\n\n`);
+        const result = await runAgent(prompt, decide);
+        res.json({
+            ok: true,
+            data: {
+                result
+            }
         });
-        // 收尾：done 帧带最终答案，然后关连接
-        res.write(`data: ${JSON.stringify({
-            type: 'done',
-            content: answer
-        })}\n\n`);
-        res.end();
     } catch (err) {
-        // 异常也按 SSE 帧发，前端能统一解析
-        res.write(`data: ${JSON.stringify({ type: 'error', error: 'Agent 执行出错' })}\n\n`);
-        res.end();
+        console.error('Agent 执行出错', err);
+        res.status(500).json({
+            ok: false,
+            error: 'Agent 执行出错，请稍后再试'
+        });
     }
 });
 

@@ -1,5 +1,4 @@
 import { TOOLS } from "@/agent/tools.js";
-import { createApproval, waitForApproval } from "@/agent/approvals.js";
 
 // Agent对话的类型
 interface AgentMessage {
@@ -35,27 +34,22 @@ const MAX_TURNS = 5;   // 保险：防 LLM 死循环无限调工具
 const SYSTEM_PROMPT = `
 角色：你是一个电商业务运营助手，
 能力边界：只能通过提供的工具操作业务系统，工具没覆盖的事情要做不到就明说，不能瞎编，
-安全规则：所有业务操作都直接调用对应工具；危险操作（取消订单、改价）系统会自动请求人工审批，无需自行拦阻
+安全规则：涉及高风险/危险操作（取消订单、改价）时，先停下来说明，等待人工审批
+要求：你必须严格遵循以上约束
 `;
 
 // 广播的事件类型：(1)ToolCalls (2)content
 export type AgentEvent =
-    | {
-        type: 'tool_result';
-        name: string;
-        result: unknown
-    }
     | {
         type: 'tool_call';
         name: string;
         arguments: string
     }
     | {
-        type: 'approval_required';
-        approvalId: string;   // 审批单号，前端拿它调 decide 接口
-        toolName: string;
-        args: Record<string, unknown>;  // 参数快照：前端展示"要取消订单 o1？"
-    }
+        type: 'tool_result';
+        name: string;
+        result: unknown
+    };
 
 export async function runAgent(
     prompt: string,
@@ -87,11 +81,7 @@ export async function runAgent(
         });
         for (const call of step.toolCalls) {
             // 广播：ToolCalls
-            onEvent?.({
-                type: 'tool_call',
-                name: call.name,
-                arguments: call.arguments
-            });
+            onEvent?.({ type: 'tool_call', name: call.name, arguments: call.arguments })
 
             const tool = TOOLS.find(t => t.name === call.name);
             let result = undefined;
@@ -99,32 +89,11 @@ export async function runAgent(
                 result = '工具不存在';
             } else {
                 const args = JSON.parse(call.arguments);
-                // 分支一：需要“审批”，先问再执行
-                if (tool.requiresApproval) {
-                    // 1. 创建工单
-                    const approval = createApproval(tool.name, args);
-                    onEvent?.({
-                        type: 'approval_required',
-                        approvalId: approval.id,
-                        toolName: tool.name,
-                        args,
-                    });                                          // 2. 广播"请审批"
-                    const decision = await waitForApproval(approval.id);
-                    // 3. 根据“审批”结果执行
-                    result = decision.status === 'approved'
-                        ? tool.execute(args)
-                        : { rejected: true, message: `操作被拒绝: ${tool.name}` };
-                } else {
-                    // 分支二：不需要，直接执行即可
-                    result = tool.execute(args);
-                }
+                result = tool.execute(args);
+
+                // 广播：ToolCall
+                onEvent?.({ type: 'tool_result', name: call.name, result })
             }
-            // 广播：content
-            onEvent?.({
-                type: 'tool_result',
-                name: call.name,
-                result
-            });
 
             messages.push({
                 role: 'tool',

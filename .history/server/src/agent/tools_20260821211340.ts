@@ -1,4 +1,4 @@
-import { overview, getOrder, updateOrderStatus } from "@/business/system.js";
+import { overview, getOrder } from "@/business/system.js";
 
 export interface Tool {
     name: string;
@@ -43,15 +43,10 @@ export const TOOLS: Tool[] = [
         description: '取消一笔订单（仅 pending/processing 状态可取消，取消会退还库存）。这是危险操作，需要人工审批。',
         parameters: {
             type: 'object',
-            properties: {
-                orderId: {
-                    type: 'string',
-                    description: '订单 ID'
-                }
-            },
+            properties: { orderId: { type: 'string', description: '订单 ID' } },
             required: ['orderId'],
         },
-        requiresApproval: true, // 纵深防御——闸门兜底
+        requiresApproval: true,                       // ★ 关键：给闸门看的标记
         execute: (args) => updateOrderStatus(args.orderId, 'cancelled'),
     }
 ];

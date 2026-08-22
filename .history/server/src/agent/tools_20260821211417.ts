@@ -1,4 +1,4 @@
-import { overview, getOrder, updateOrderStatus } from "@/business/system.js";
+import { overview, getOrder } from "@/business/system.js";
 
 export interface Tool {
     name: string;
@@ -51,7 +51,7 @@ export const TOOLS: Tool[] = [
             },
             required: ['orderId'],
         },
-        requiresApproval: true, // 纵深防御——闸门兜底
+        requiresApproval: true,
         execute: (args) => updateOrderStatus(args.orderId, 'cancelled'),
     }
 ];

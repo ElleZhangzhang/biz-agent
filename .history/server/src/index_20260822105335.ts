@@ -17,7 +17,6 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/business', businessRouter);
 app.use('/api/agent', agentRouter);
-app.use('/api/approvals', approvalRouter);
 
 app.listen(PORT, () => {
     console.log('biz-agent server listening on http://localhost:' + PORT);
