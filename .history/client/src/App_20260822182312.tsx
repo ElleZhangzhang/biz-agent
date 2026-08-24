@@ -1,7 +1,6 @@
 import './App.css'
 import OverviewPanel from '@/components/OverviewPanel';
 import OrderTable from '@/components/OrderTable';
-import AgentConsole from '@/components/AgentConsole';
 
 function App() {
   return (
@@ -10,8 +9,6 @@ function App() {
       <OverviewPanel />
       <h2 style={{ marginTop: 32 }}>订单列表</h2>
       <OrderTable />
-      <h2 style={{ marginTop: 32 }}>Agent 控制台</h2>
-      <AgentConsole />
     </div>
   );
 }

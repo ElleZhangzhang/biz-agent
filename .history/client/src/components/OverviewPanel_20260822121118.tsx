@@ -1,0 +1,12 @@
+import { useEffect, useState } from 'react';
+import { Alert, Card, Col, Empty, List, Row, Spin, Statistic, Tag } from 'antd';
+import { getOverview, type OrderStatus, type Overview } from '@/api/business';
+
+// 后端存英文枚举，前端负责翻译展示
+const STATUS_LABEL: Record<OrderStatus, string> = {
+    pending: '待处理',
+    processing: '处理中',
+    shipped: '已发货',
+    completed: '已完成',
+    cancelled: '已取消',
+};

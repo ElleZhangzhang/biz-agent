@@ -10,8 +10,6 @@ function App() {
       <OverviewPanel />
       <h2 style={{ marginTop: 32 }}>订单列表</h2>
       <OrderTable />
-      <h2 style={{ marginTop: 32 }}>Agent 控制台</h2>
-      <AgentConsole />
     </div>
   );
 }
