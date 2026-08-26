@@ -18,7 +18,7 @@ export function overview() {
         byStatus[o.status]++;
     }
 
-    // bug：必须执行overview才能刷新低于库存的商品
+    bug：必须执行overview才能刷新低于库存的商品
     const lowStockProducts = products.filter(p => p.stock < p.restockThreshold
     );
 

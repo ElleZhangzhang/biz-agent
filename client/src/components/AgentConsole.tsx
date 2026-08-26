@@ -119,12 +119,12 @@ function AgentConsole() {
     }
 
     return (
-        <div>
-            {/* 消息列表：固定高度 + 内部滚动 */}
-            <div style={{ maxHeight: 480, overflowY: 'auto', marginBottom: 12 }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {/* 消息列表：占满剩余空间，内部滚动 */}
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginBottom: 12 }}>
                 {messages.map((m, i) => <Message key={i} m={m} onError={pushError} />)}
             </div>
-            {/* 输入区：回车或点按钮发送，streaming 时禁用 */}
+            {/* 输入区：固定在板块底部，回车或点按钮发送，streaming 时禁用 */}
             <Input.Search
                 placeholder="跟 Agent 说点什么…"
                 enterButton="发送"

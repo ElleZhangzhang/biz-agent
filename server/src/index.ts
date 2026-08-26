@@ -3,6 +3,7 @@ import express from "express";
 import businessRouter from '@/routes/business.js'
 import agentRouter from '@/routes/agent.js';
 import approvalRouter from '@/routes/approvals.js'
+import authRouter from '@/routes/auth.js';
 
 const app = express();
 const PORT = 3001;
@@ -18,6 +19,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/business', businessRouter);
 app.use('/api/agent', agentRouter);
 app.use('/api/approvals', approvalRouter);
+app.use('/api/auth', authRouter);
 
 app.listen(PORT, () => {
     console.log('biz-agent server listening on http://localhost:' + PORT);
