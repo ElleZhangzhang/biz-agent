@@ -39,14 +39,4 @@ export async function runAgentStream(
     }
 }
 
-export async function decideApproval(approvalId: string, decision: ApprovalDecision): Promise<void> {
-    const res = await fetch(`/api/approvals/${approvalId}/decide`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision }),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error ?? '审批失败');
-    }
-}
+

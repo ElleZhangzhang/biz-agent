@@ -83,8 +83,6 @@ function AgentConsole() {
     const [messages, setMessages] = useState<ConsoleMsg[]>([]);
     const [streaming, setStreaming] = useState(false);
 
-    const pushError = (text: string) => setMessages((m) => [...m, { kind: 'error', text }]);
-
     async function handleSend() {
         const prompt = input.trim();
         if (!prompt || streaming) return;
@@ -107,7 +105,7 @@ function AgentConsole() {
         <div>
             {/* 消息列表：固定高度 + 内部滚动 */}
             <div style={{ maxHeight: 480, overflowY: 'auto', marginBottom: 12 }}>
-                {messages.map((m, i) => <Message key={i} m={m} onError={pushError} />)}
+                {messages.map((m, i) => <Message key={i} m={m} onError={() => { }} />)}
             </div>
             {/* 输入区：回车或点按钮发送，streaming 时禁用 */}
             <Input.Search

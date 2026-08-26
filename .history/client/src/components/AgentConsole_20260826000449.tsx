@@ -107,7 +107,7 @@ function AgentConsole() {
         <div>
             {/* 消息列表：固定高度 + 内部滚动 */}
             <div style={{ maxHeight: 480, overflowY: 'auto', marginBottom: 12 }}>
-                {messages.map((m, i) => <Message key={i} m={m} onError={pushError} />)}
+                {messages.map((m, i) => <Message key={i} m={m} onError={pushError}
             </div>
             {/* 输入区：回车或点按钮发送，streaming 时禁用 */}
             <Input.Search

@@ -37,7 +37,7 @@ export function createMockDecide(): Decide {
                 const text = messages[messages.length - 1].content ?? '';
                 const orderId = text.match(/o\d+/)?.[0];
                 if ((best.name === 'cancel_order' || best.name === 'get_order') && !orderId) {
-                    return { content: `请告诉我要${best.name === 'cancel_order' ? '取消' : '查询'}哪个订单（订单号类似 o1）。` };
+                    return { content: `请告诉我要${best.name}哪个订单（订单号类似 o1）。` };
                 }
                 return {
                     toolCalls: [

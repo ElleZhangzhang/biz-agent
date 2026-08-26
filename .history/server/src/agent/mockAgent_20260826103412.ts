@@ -36,8 +36,8 @@ export function createMockDecide(): Decide {
                 // 参数提取：从用户原话里抠订单号（"取消订单 o1" → "o1"）
                 const text = messages[messages.length - 1].content ?? '';
                 const orderId = text.match(/o\d+/)?.[0];
-                if ((best.name === 'cancel_order' || best.name === 'get_order') && !orderId) {
-                    return { content: `请告诉我要${best.name === 'cancel_order' ? '取消' : '查询'}哪个订单（订单号类似 o1）。` };
+                if (best.name === 'cancel_order' && !orderId) {
+                    return { content: '请告诉我要取消哪个订单（订单号类似 o1）。' };
                 }
                 return {
                     toolCalls: [
