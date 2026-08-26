@@ -1,7 +1,6 @@
 import { Alert, Card, Input, Tag } from 'antd';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { runAgentStream, type AgentEvent } from '@/api/agent';
 import ApprovalCard from '@/components/ApprovalCard';
 
@@ -45,15 +44,11 @@ function Message({ m, onError }: { m: ConsoleMsg; onError: (text: string) => voi
                 <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 8 }}>
                     <div style={{ background: '#f5f5f5', borderRadius: 8, padding: '8px 12px', maxWidth: '70%' }}>
                         <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
                             components={{
                                 p: ({ children }) => <p style={{ margin: '4px 0' }}>{children}</p>,
                                 ul: ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: 20 }}>{children}</ul>,
                                 ol: ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: 20 }}>{children}</ol>,
                                 li: ({ children }) => <li style={{ margin: '2px 0' }}>{children}</li>,
-                                table: ({ children }) => <table style={{ borderCollapse: 'collapse', margin: '8px 0', fontSize: 13 }}>{children}</table>,
-                                th: ({ children }) => <th style={{ border: '1px solid #d9d9d9', padding: '4px 8px' }}>{children}</th>,
-                                td: ({ children }) => <td style={{ border: '1px solid #d9d9d9', padding: '4px 8px' }}>{children}</td>,
                             }}
                         >
                             {m.text}

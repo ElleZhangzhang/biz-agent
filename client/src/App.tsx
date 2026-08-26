@@ -1,4 +1,3 @@
-import './App.css'
 import OverviewPanel from '@/components/OverviewPanel';
 import OrderTable from '@/components/OrderTable';
 import AgentConsole from '@/components/AgentConsole';
