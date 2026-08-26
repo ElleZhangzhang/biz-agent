@@ -40,8 +40,8 @@ export function createMockDecide(): Decide {
                 // 参数提取：从用户原话里抠订单号（"取消订单 o1" → "o1"）
                 const text = messages[messages.length - 1].content ?? '';
                 const orderId = text.match(/o\d+/)?.[0];
-                if ((best.name === 'cancel_order' || best.name === 'get_order' || best.name === 'process_order') && !orderId) {
-                    return { content: `请告诉我要${best.name === 'cancel_order' ? '取消' : best.name === 'process_order' ? '处理' : '查询'}哪个订单（订单号类似 o1）。` };
+                if ((best.name === 'cancel_order' || best.name === 'get_order') && !orderId) {
+                    return { content: `请告诉我要${best.name === 'cancel_order' ? '取消' : '查询'}哪个订单（订单号类似 o1）。` };
                 }
                 return {
                     toolCalls: [
@@ -54,7 +54,7 @@ export function createMockDecide(): Decide {
                 };
             }
             return {
-                content: '我暂时只会查询总览/查询某订单/取消某订单/处理某订单，换个说法试试。'
+                content: '我暂时只会查总览、订单和取消订单，换个说法试试。'
             };
         }
 

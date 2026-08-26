@@ -125,9 +125,17 @@ export function processOrder(orderId: string) {
     if (!res1.ok) return res1;
 
     const lowStockProducts: Product[] = [];
+    order.items.forEach(item => {
+        const product = products.find(p => p.name === item.name);
+        if (!product) return { ok: false, error: `未找到商品：${item.name}` }
+
+        if (product?.stock < product.restockThreshold) {
+            lowStockProducts.push(product);
+        }
+    })
 
     for (let item of order.items) {
-        const product = products.find(p => p.id === item.productId);
+        const product = products.find(p => p.name === item.name);
         if (!product) return { ok: false, error: `未找到商品：${item.name}` }
 
         if (product?.stock < product.restockThreshold) {

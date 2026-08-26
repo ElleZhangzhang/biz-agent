@@ -120,24 +120,20 @@ export function updateOrderStatus(
 export function processOrder(orderId: string) {
     const order = orders.find(o => o.id === orderId);
     if (!order) return { ok: false, error: '该订单不存在' };
-
-    const res1 = updateOrderStatus(orderId, 'processing');
-    if (!res1.ok) return res1;
+    updateOrderStatus(orderId, 'processing');
 
     const lowStockProducts: Product[] = [];
-
-    for (let item of order.items) {
-        const product = products.find(p => p.id === item.productId);
+    order.items.forEach(item => {
+        const product = products.find(p => p.name === item.name);
         if (!product) return { ok: false, error: `未找到商品：${item.name}` }
 
         if (product?.stock < product.restockThreshold) {
             lowStockProducts.push(product);
         }
-    }
+    })
 
-    const res2 = updateOrderStatus(orderId, 'completed');
-    if (!res2.ok) return res2;
+    updateOrderStatus(orderId, 'completed');
 
-    if (lowStockProducts.length === 0) return res2;
+    if (lowStockProducts.length === 0) return { ok: true, order }
     return { ok: true, order, lowStockWarnings: lowStockProducts }
 }

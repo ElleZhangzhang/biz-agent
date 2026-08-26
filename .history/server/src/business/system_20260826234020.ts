@@ -125,15 +125,14 @@ export function processOrder(orderId: string) {
     if (!res1.ok) return res1;
 
     const lowStockProducts: Product[] = [];
-
-    for (let item of order.items) {
-        const product = products.find(p => p.id === item.productId);
+    order.items.forEach(item => {
+        const product = products.find(p => p.name === item.name);
         if (!product) return { ok: false, error: `未找到商品：${item.name}` }
 
         if (product?.stock < product.restockThreshold) {
             lowStockProducts.push(product);
         }
-    }
+    })
 
     const res2 = updateOrderStatus(orderId, 'completed');
     if (!res2.ok) return res2;

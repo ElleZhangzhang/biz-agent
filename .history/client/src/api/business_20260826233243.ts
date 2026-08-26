@@ -15,7 +15,7 @@ export const RISK_LABEL: Record<RiskLevel, string> = {
 };
 
 // #region Overview
-export type OrderStatus = 'pending' | 'processing' | 'completed' | 'cancelled';
+export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled';
 
 export interface Overview {
     totalOrders: number;

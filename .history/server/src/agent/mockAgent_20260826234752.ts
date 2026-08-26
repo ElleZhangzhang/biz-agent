@@ -54,7 +54,7 @@ export function createMockDecide(): Decide {
                 };
             }
             return {
-                content: '我暂时只会查询总览/查询某订单/取消某订单/处理某订单，换个说法试试。'
+                content: '我暂时只会查总览、订单和取消订单，换个说法试试。'
             };
         }
 

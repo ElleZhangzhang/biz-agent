@@ -1,4 +1,4 @@
-import { overview, getOrder, updateOrderStatus, processOrder } from "@/business/system.js";
+import { overview, getOrder, updateOrderStatus } from "@/business/system.js";
 
 export interface Tool {
     name: string;
@@ -15,7 +15,7 @@ export interface Tool {
 export const TOOLS: Tool[] = [
     {
         name: 'get_overview',
-        description: '获取业务总览：订单总数、各状态订单数、低库存商品。不需要人工审批',
+        description: '获取业务总览：订单总数、各状态订单数、低库存商品',
         parameters: {
             type: 'object',
             properties: {},
@@ -25,7 +25,7 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'get_order',
-        description: '按订单 ID 查询单个订单详情，当用户询问某笔具体订单时使用。不需要人工审批',
+        description: '按订单 ID 查询单个订单详情，当用户询问某笔具体订单时使用',
         parameters: {
             type: 'object',
             properties: {
@@ -55,8 +55,8 @@ export const TOOLS: Tool[] = [
         execute: (args) => updateOrderStatus(args.orderId, 'cancelled'),
     },
     {
-        name: 'process_order',
-        description: '帮用户处理一笔订单，用于完成订单处理过程、修改订单状态，不需要人工审批。',
+        name: ' process_order',
+        description: '取消一笔订单（仅 pending/processing 状态可取消，取消会退还库存）。这是危险操作，需要人工审批。',
         parameters: {
             type: 'object',
             properties: {
@@ -67,6 +67,7 @@ export const TOOLS: Tool[] = [
             },
             required: ['orderId'],
         },
-        execute: (args) => processOrder(args.orderId),
+        requiresApproval: true, // 纵深防御——闸门兜底
+        execute: (args) => updateOrderStatus(args.orderId, 'cancelled'),
     },
 ];

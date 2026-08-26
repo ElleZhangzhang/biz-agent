@@ -67,6 +67,6 @@ export const TOOLS: Tool[] = [
             },
             required: ['orderId'],
         },
-        execute: (args) => processOrder(args.orderId),
+        execute: (args) => processOrder(args.orderId, 'cancelled'),
     },
 ];

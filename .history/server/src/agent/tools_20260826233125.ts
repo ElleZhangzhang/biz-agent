@@ -1,4 +1,4 @@
-import { overview, getOrder, updateOrderStatus, processOrder } from "@/business/system.js";
+import { overview, getOrder, updateOrderStatus } from "@/business/system.js";
 
 export interface Tool {
     name: string;
@@ -55,7 +55,7 @@ export const TOOLS: Tool[] = [
         execute: (args) => updateOrderStatus(args.orderId, 'cancelled'),
     },
     {
-        name: 'process_order',
+        name: ' process_order',
         description: '帮用户处理一笔订单，用于完成订单处理过程、修改订单状态，不需要人工审批。',
         parameters: {
             type: 'object',
@@ -67,6 +67,7 @@ export const TOOLS: Tool[] = [
             },
             required: ['orderId'],
         },
-        execute: (args) => processOrder(args.orderId),
+        requiresApproval: true, // 纵深防御——闸门兜底
+        execute: (args) => updateOrderStatus(args.orderId, 'cancelled'),
     },
 ];
