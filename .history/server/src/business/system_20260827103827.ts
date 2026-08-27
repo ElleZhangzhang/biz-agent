@@ -144,18 +144,14 @@ export function processOrder(orderId: string) {
 }
 
 // 补货
-function isPositiveInteger(num: number): boolean {
-    return /^[1-9]\d*$/.test(String(num));
+function isPositiveInteger(num) {
+    return /^[1-9]\d*$/.test(num);
 }
-
 export function restockProduct(productId: string, qty: number) {
     const product = products.find(p => p.id === productId);
     if (!product) return { ok: false, error: '该商品不存在' };
 
-    if (!isPositiveInteger(qty)) return { ok: false, error: '补货数量应为正整数' };
-    product.stock += qty;
+    if (qty < 1 &&)
+        product.stock += qty;
 
-    return { ok: true, product };
 }
-
-// TODO 调价，该功能和补货写法的逻辑十分类似，很容易写

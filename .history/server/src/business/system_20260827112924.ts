@@ -158,4 +158,4 @@ export function restockProduct(productId: string, qty: number) {
     return { ok: true, product };
 }
 
-// TODO 调价，该功能和补货写法的逻辑十分类似，很容易写
+// TODO：调价，该功能和补货写法的逻辑十分类似，很容易写

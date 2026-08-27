@@ -1,4 +1,4 @@
-import { overview, getOrder, updateOrderStatus, processOrder, restockProduct } from "@/business/system.js";
+import { overview, getOrder, updateOrderStatus, processOrder } from "@/business/system.js";
 
 export interface Tool {
     name: string;
@@ -62,7 +62,7 @@ export const TOOLS: Tool[] = [
             properties: {
                 orderId: {
                     type: 'string',
-                    description: '商品 ID'
+                    description: '订单 ID'
                 }
             },
             required: ['orderId'],
@@ -71,21 +71,17 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'restock',
-        description: '补货，增加库存中某件商品的数量。不需要人工审批',
+        description: '帮用户处理一笔订单，用于完成订单处理过程、修改订单状态，不需要人工审批。',
         parameters: {
             type: 'object',
             properties: {
-                productId: {
+                orderId: {
                     type: 'string',
-                    description: '商品 ID'
-                },
-                qty: {
-                    type: 'number',
-                    description: '补货数量'
+                    description: '订单 ID'
                 }
             },
-            required: ['productId', 'qty'],
+            required: ['orderId'],
         },
-        execute: (args) => restockProduct(args.productId, args.qty),
+        execute: (args) => processOrder(args.orderId),
     },
 ];

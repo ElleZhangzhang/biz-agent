@@ -120,7 +120,7 @@ export function updateOrderStatus(
 export function processOrder(orderId: string) {
     const order = orders.find(o => o.id === orderId);
     if (!order) return { ok: false, error: '该订单不存在' };
-    if (order.status !== 'pending') return { ok: false, error: `当前订单的状态已为${order.status}，无法处理。` }
+    if (order.status !== 'pending') return { ok: false, error: `当前订单的状态已为${order.status}，无法处理` }
 
     const res1 = updateOrderStatus(orderId, 'processing');
     if (!res1.ok) return res1;
@@ -142,20 +142,3 @@ export function processOrder(orderId: string) {
     if (lowStockProducts.length === 0) return res2;
     return { ok: true, order, lowStockWarnings: lowStockProducts }
 }
-
-// 补货
-function isPositiveInteger(num: number): boolean {
-    return /^[1-9]\d*$/.test(String(num));
-}
-
-export function restockProduct(productId: string, qty: number) {
-    const product = products.find(p => p.id === productId);
-    if (!product) return { ok: false, error: '该商品不存在' };
-
-    if (!isPositiveInteger(qty)) return { ok: false, error: '补货数量应为正整数' };
-    product.stock += qty;
-
-    return { ok: true, product };
-}
-
-// TODO 调价，该功能和补货写法的逻辑十分类似，很容易写

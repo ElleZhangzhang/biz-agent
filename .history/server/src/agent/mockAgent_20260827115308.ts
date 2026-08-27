@@ -44,7 +44,7 @@ export function createMockDecide(): Decide {
                 let args = '{}';
 
                 // 参数提取：从用户原话里抠订单号（"取消订单 o1" → "o1"）
-                let text = messages[messages.length - 1].content ?? '';
+                const text = messages[messages.length - 1].content ?? '';
 
                 if (best.name === 'cancel_order' || best.name === 'get_order' || best.name === 'process_order') {
                     const orderId = text.match(/o\d+/)?.[0];

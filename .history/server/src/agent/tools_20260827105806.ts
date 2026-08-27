@@ -62,7 +62,7 @@ export const TOOLS: Tool[] = [
             properties: {
                 orderId: {
                     type: 'string',
-                    description: '商品 ID'
+                    description: '订单 ID'
                 }
             },
             required: ['orderId'],
@@ -77,7 +77,7 @@ export const TOOLS: Tool[] = [
             properties: {
                 productId: {
                     type: 'string',
-                    description: '商品 ID'
+                    description: '订单 ID'
                 },
                 qty: {
                     type: 'number',
@@ -86,6 +86,6 @@ export const TOOLS: Tool[] = [
             },
             required: ['productId', 'qty'],
         },
-        execute: (args) => restockProduct(args.productId, args.qty),
+        execute: (args) => restockProduct(args.orderId, args.qty),
     },
 ];

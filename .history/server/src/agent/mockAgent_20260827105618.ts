@@ -3,10 +3,6 @@ import { Decide } from "@/agent/agentLoop.js";
 const RULES = [
     // 以后加工具 = 在这里加一行，不碰循环
     {
-        name: 'restock',
-        keywords: ['补货', '进货', '补充库存', '补充']
-    },
-    {
         name: 'get_overview',
         keywords: ['总览', '概览', '生意', '经营', '库存', '订单情况', '怎么样', '数据', '看看', '最近'],
     },
@@ -17,6 +13,10 @@ const RULES = [
     {
         name: 'process_order',
         keywords: ['处理', '接单', '完成']
+    },
+    {
+        name: 'restock',
+        keywords: ['补货', '进货', '补充库存', '补充']
     },
     {
         name: 'get_order',
@@ -41,38 +41,18 @@ export function createMockDecide(): Decide {
                 }
             }
             if (best) {
-                let args = '{}';
-
                 // 参数提取：从用户原话里抠订单号（"取消订单 o1" → "o1"）
-                let text = messages[messages.length - 1].content ?? '';
-
-                if (best.name === 'cancel_order' || best.name === 'get_order' || best.name === 'process_order') {
-                    const orderId = text.match(/o\d+/)?.[0];
-                    if (!orderId) {
-                        return { content: `请告诉我要${best.name === 'cancel_order' ? '取消' : best.name === 'process_order' ? '处理' : '查询'}哪个订单（订单号类似 o1）。` };
-                    }
-                    args = JSON.stringify({ orderId });
+                const text = messages[messages.length - 1].content ?? '';
+                const orderId = text.match(/o\d+/)?.[0];
+                if ((best.name === 'cancel_order' || best.name === 'get_order' || best.name === 'process_order') && !orderId) {
+                    return { content: `请告诉我要${best.name === 'cancel_order' ? '取消' : best.name === 'process_order' ? '处理' : '查询'}哪个订单（订单号类似 o1）。` };
                 }
-
-                if (best.name === 'restock') {
-                    const productId = text.match(/p\d+/)?.[0];
-                    text = text.replace(/p\d+/g, '');
-
-                    const qty = Number(text.match(/(\d+)\s*(?:个|件)/)?.[1] ?? text.match(/\d+/g)?.at(-1));
-                    if (!productId || !qty) return { content: '请告诉我要给哪个商品补多少货（例如：给p6补货20个）。' }
-                    args = JSON.stringify({ productId, qty });
-                }
-
-                if (best.name === 'get_overview') {
-                    args = '{}';
-                }
-
                 return {
                     toolCalls: [
                         {
                             id: 'call_1',
                             name: best.name,
-                            arguments: args
+                            arguments: orderId ? JSON.stringify({ orderId }) : '{}'
                         }
                     ]
                 };

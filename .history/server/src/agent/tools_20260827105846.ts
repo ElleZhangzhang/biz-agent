@@ -62,7 +62,7 @@ export const TOOLS: Tool[] = [
             properties: {
                 orderId: {
                     type: 'string',
-                    description: '商品 ID'
+                    description: '订单 ID'
                 }
             },
             required: ['orderId'],
@@ -77,7 +77,7 @@ export const TOOLS: Tool[] = [
             properties: {
                 productId: {
                     type: 'string',
-                    description: '商品 ID'
+                    description: '订单 ID'
                 },
                 qty: {
                     type: 'number',

@@ -144,7 +144,7 @@ export function processOrder(orderId: string) {
 }
 
 // 补货
-function isPositiveInteger(num: number): boolean {
+function isPositiveInteger(num: number) {
     return /^[1-9]\d*$/.test(String(num));
 }
 
@@ -157,5 +157,3 @@ export function restockProduct(productId: string, qty: number) {
 
     return { ok: true, product };
 }
-
-// TODO 调价，该功能和补货写法的逻辑十分类似，很容易写

@@ -41,38 +41,23 @@ export function createMockDecide(): Decide {
                 }
             }
             if (best) {
-                let args = '{}';
-
                 // 参数提取：从用户原话里抠订单号（"取消订单 o1" → "o1"）
-                let text = messages[messages.length - 1].content ?? '';
+                const text = messages[messages.length - 1].content ?? '';
 
-                if (best.name === 'cancel_order' || best.name === 'get_order' || best.name === 'process_order') {
-                    const orderId = text.match(/o\d+/)?.[0];
-                    if (!orderId) {
-                        return { content: `请告诉我要${best.name === 'cancel_order' ? '取消' : best.name === 'process_order' ? '处理' : '查询'}哪个订单（订单号类似 o1）。` };
-                    }
-                    args = JSON.stringify({ orderId });
+                const orderId = text.match(/o\d+/)?.[0];
+                if ((best.name === 'cancel_order' || best.name === 'get_order' || best.name === 'process_order') && !orderId) {
+                    return { content: `请告诉我要${best.name === 'cancel_order' ? '取消' : best.name === 'process_order' ? '处理' : '查询'}哪个订单（订单号类似 o1）。` };
                 }
 
-                if (best.name === 'restock') {
-                    const productId = text.match(/p\d+/)?.[0];
-                    text = text.replace(/p\d+/g, '');
-
-                    const qty = Number(text.match(/(\d+)\s*(?:个|件)/)?.[1] ?? text.match(/\d+/g)?.at(-1));
-                    if (!productId || !qty) return { content: '请告诉我要给哪个商品补多少货（例如：给p6补货20个）。' }
-                    args = JSON.stringify({ productId, qty });
-                }
-
-                if (best.name === 'get_overview') {
-                    args = '{}';
-                }
+                const productId = text.match(/p\d+/)?.[0];
+                const qty = Number(text.match(/(\d+)\s*(?:个|件)/)?.[1] ?? text.match(/\d+/g)?.at(-1));
 
                 return {
                     toolCalls: [
                         {
                             id: 'call_1',
                             name: best.name,
-                            arguments: args
+                            arguments: orderId ? JSON.stringify({ orderId }) : '{}'
                         }
                     ]
                 };
