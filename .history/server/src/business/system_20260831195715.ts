@@ -72,13 +72,10 @@ function mapRowToOrder(row: any): Order {
     };
 }
 
-// BUG 解决 client-Agent控制台 中商品数总为0的bug
+// BUG 解决 client-Agent控制台 中商品数为0的bug
 export async function listOrders(status?: OrderStatus): Promise<Order[]> {
     // #region sql
-    // 1. bug原因:orders table和order_items table是分开的两张表,orders table中的items colomn存的是空数组,所以order.items.length为0
-
-    // 2. 解决方法:分为两步,LEFT JOIN + JS Map
-    // (1) LEFT JOIN通过平铺查询组合订单和订单中的商品明细
+    // 解决方法LEFT JOIN通过平铺查询组合订单和订单中的商品明细
     const sql = status
         ? `SELECT o.id, o.customer_name, o.total_amount, o.status, o.risk_level, o.created_at,
                   oi.product_id, oi.name AS item_name, oi.qty, oi.price
@@ -91,8 +88,7 @@ export async function listOrders(status?: OrderStatus): Promise<Order[]> {
            ORDER BY o.created_at DESC`;
     //#endregion
 
-    // (2) JS Map合并属于同一个order的items到对应order
-    // (1) + (2) 便可以保证order的商品数为items.length
+    // 一行 = 一个订单项；同一订单的多行在 JS 里合并成一个 order
     const [rows] = await pool.query(sql, status ? [status] : []);
     const orderMap = new Map<string, Order>();
     for (const r of rows as any[]) {
@@ -290,5 +286,3 @@ export async function restockProduct(productId: string, qty: number) {
 }
 
 // TODO 调价，该功能和补货写法的逻辑十分类似，很容易写
-
-// TODO 获取库存数低于low的

@@ -4,6 +4,7 @@ import {
     getOrders, STATUS_LABEL, RISK_LABEL,
     type Order, type OrderStatus, type RiskLevel,
 } from '@/api/business';
+import { subscribeSimEvents } from '@/api/simulator';
 
 // 颜色也是"翻译"，跟文案一样用映射表，别写一长串三元
 const STATUS_COLOR: Record<OrderStatus, string> = {
@@ -27,6 +28,13 @@ function OrderTable() {
         getOrders()
             .then((data) => setData(data))
             .catch((e: Error) => setError(e.message));
+    }, []);
+
+    // 新单到达（SSE 广播）→ 自动重新拉列表，演示时不用手动刷新（拒绝轮询）
+    useEffect(() => {
+        return subscribeSimEvents(() => {
+            getOrders().then(setData).catch(() => { /* 拉取失败不打断现有列表 */ });
+        });
     }, []);
 
     if (error) return <Alert type="error" message={`加载失败：${error}`} />;

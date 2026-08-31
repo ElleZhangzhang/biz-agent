@@ -4,6 +4,7 @@ import businessRouter from '@/routes/business.js'
 import agentRouter from '@/routes/agent.js';
 import approvalRouter from '@/routes/approvals.js'
 import authRouter from '@/routes/auth.js';
+import simulatorRouter from '@/routes/simulator.js';
 import { testConnection } from '@/db.js'
 import { seedProductsIfEmpty } from '@/business/system.js'
 
@@ -22,6 +23,7 @@ app.use('/api/business', businessRouter);
 app.use('/api/agent', agentRouter);
 app.use('/api/approvals', approvalRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/simulator', simulatorRouter);
 
 await testConnection();
 await seedProductsIfEmpty();   // products 表空才写入 seed 商品（幂等）
