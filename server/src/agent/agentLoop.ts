@@ -106,7 +106,7 @@ export async function runAgent(
                 // 分支一：需要“审批”，先问再执行
                 if (tool.requiresApproval) {
                     // 1. 创建工单
-                    const approval = createApproval(tool.name, args);
+                    const approval = await createApproval(tool.name, args);
                     onEvent?.({
                         type: 'approval_required',
                         approvalId: approval.id,
@@ -116,11 +116,11 @@ export async function runAgent(
                     const decision = await waitForApproval(approval.id);
                     // 3. 根据“审批”结果执行
                     result = decision.status === 'approved'
-                        ? tool.execute(args)
+                        ? await tool.execute(args)
                         : { rejected: true, message: `操作被拒绝: ${tool.name}` };
                 } else {
                     // 分支二：不需要，直接执行即可
-                    result = tool.execute(args);
+                    result = await tool.execute(args);
                 }
             }
             // 广播：content

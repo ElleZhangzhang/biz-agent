@@ -1,91 +1,164 @@
 import { Order, OrderStatus, OrderItem, Product } from "@/business/types.js";
 import { seedProducts } from "@/business/seed.js";
+import pool from '@/db.js';
 
-const products = seedProducts();
-const orders: Order[] = [];
-let nextOrderId = 1;
-
-// 总览购物车
-export function overview() {
+// 总览
+export async function overview() {
+    // 各状态订单数：GROUP BY 聚合，让数据库数数（只出现有单的状态，先预填 0）
+    const [rows] = await pool.query('SELECT status, COUNT(*) AS cnt FROM orders GROUP BY status');
     const byStatus: Record<OrderStatus, number> = {
         'pending': 0,
         'processing': 0,
         'completed': 0,
         'cancelled': 0,
-    }
-    for (const o of orders) {
-        byStatus[o.status]++;
-    }
+    };
+    for (const r of rows as any[]) byStatus[r.status as OrderStatus] = r.cnt;
+    const totalOrders = Object.values(byStatus).reduce((a, b) => a + b, 0);
 
-    // bug：必须执行overview才能刷新低于库存的商品
-    const lowStockProducts = products.filter(p => p.stock < p.restockThreshold
-    );
+    // 低库存：条件直接放 SQL，顺带消灭内存版"必须执行 overview 才能刷新"的老 bug
+    const [lowRows] = await pool.query('SELECT * FROM products WHERE stock < restock_threshold');
+    const lowStockProducts = (lowRows as any[]).map(mapRowToProduct);
 
     return {
-        totalOrders: orders.length,  // orders-订单总数
-        byStatus,  // orders-5种状态各有多少单
+        totalOrders,  // orders-订单总数
+        byStatus,  // orders-各状态订单数
         lowStockProducts,  // product-库存不足的商品
+    };
+}
+
+// 启动时幂等 seed：products 表空才写入（重跑安全，重复启动不重复插）
+export async function seedProductsIfEmpty() {
+    const [rows] = await pool.query('SELECT COUNT(*) AS cnt FROM products');
+    if (((rows as any[])[0]?.cnt ?? 0) > 0) return;
+    for (const p of seedProducts()) {
+        await pool.query(
+            'INSERT INTO products (id, name, category, price, stock, restock_threshold) VALUES (?, ?, ?, ?, ?, ?)',
+            [p.id, p.name, p.category, p.price, p.stock, p.restockThreshold]
+        );
+    }
+    console.log(`🌱 已写入 ${seedProducts().length} 件商品`);
+}
+
+// 数据库行 → Product 类型（snake_case → 驼峰）
+function mapRowToProduct(row: any): Product {
+    return {
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        price: Number(row.price),          // DECIMAL 字符串 → number
+        stock: row.stock,
+        restockThreshold: row.restock_threshold,
     };
 }
 
 // #region 订单查询两大件
 // 1.
-export function listOrders(status?: OrderStatus) {
-    // 不带 status：返回全部订单
-    if (!status) return orders;
+// TODO 添加list_orders到tools和mockAgent
 
-    // 带 status：只返回该状态的订单
-    return orders.filter(o => o.status === status);
+// 数据库映射为order
+function mapRowToOrder(row: any): Order {
+    return {
+        id: row.id,
+        customerName: row.customer_name,
+        totalAmount: Number(row.total_amount),
+        status: row.status,
+        riskLevel: row.risk_level,
+        createdAt: row.created_at.toISOString(),
+        items: [],
+    };
+}
+
+export async function listOrders(status?: OrderStatus): Promise<Order[]> {
+    const sql = status ? 'SELECT * FROM orders WHERE status = ?' : 'SELECT * FROM orders';
+    const [rows] = await pool.query(sql, status ? [status] : []);
+    return (rows as any[]).map(mapRowToOrder);
 }
 
 // 2.
-export function getOrder(orderId: string) {
-    // 找到返回该订单，找不到返回 undefined
-    return orders.find(o => o.id === orderId);
+export async function getOrder(orderId: string): Promise<Order | undefined> {
+    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if ((rows as any[]).length === 0) return undefined;
+    const order = mapRowToOrder((rows as any[])[0]);
+
+    const [itemRows] = await pool.query('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+    order.items = (itemRows as any[]).map(r => ({
+        productId: r.product_id,
+        name: r.name,
+        qty: r.qty,
+        price: Number(r.price),
+    }));
+    return order;
 }
 //#endregion
 
-// 创建订单
-export function createOrder(
+export async function createOrder(
     customerName: string,
     items: { productId: string; qty: number }[]
-): { ok: true; order: Order } | { ok: false; error: string } {
-    const orderItems: OrderItem[] = [];
-    const toDeduct: { product: Product; qty: number }[] = []; // 待扣库存的商品
-    let totalAmount = 0;
+): Promise<{ ok: true; order: Order } | { ok: false; error: string }> {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
 
-    // 第一遍：校验 + 记账
-    for (const item of items) {
-        const product = products.find(p => p.id === item.productId);
-        if (!product) return { ok: false, error: `商品不存在: ${item.productId}` };
-        if (item.qty <= 0) return { ok: false, error: `购买数量必须大于 0: ${product.name}` };
-        if (product.stock < item.qty) return { ok: false, error: `库存不足: ${product.name}（仅剩 ${product.stock} 件）` };
+        // 1. 确保所买物品存在 + 库存充足
+        const orderItems: OrderItem[] = [];
+        let totalAmount = 0;
+        for (const item of items) {
+            const [rows] = await conn.query(
+                'SELECT id, name, price, stock FROM products WHERE id = ? FOR UPDATE',
+                [item.productId]
+            );
+            const product = (rows as any[])[0];
+            if (!product) { await conn.rollback(); return { ok: false, error: `商品不存在: ${item.productId}` }; }
+            if (item.qty <= 0) { await conn.rollback(); return { ok: false, error: `购买数量必须大于 0: ${product.name}` }; }
+            if (product.stock < item.qty) { await conn.rollback(); return { ok: false, error: `库存不足: ${product.name}（仅剩 ${product.stock} 件）` }; }
 
-        orderItems.push({
-            productId: product.id,
-            name: product.name,
-            qty: item.qty,
-            price: product.price,
-        });
-        toDeduct.push({ product, qty: item.qty });
-        totalAmount += product.price * item.qty;
+            orderItems.push({
+                productId: product.id,
+                name: product.name,
+                qty: item.qty,
+                price: Number(product.price),   // DECIMAL 读出是字符串，转 number
+            });
+            totalAmount += Number(product.price) * item.qty;
+        }
+
+        const [idRows] = await conn.query('SELECT MAX(CAST(SUBSTRING(id, 2) AS UNSIGNED)) AS maxNum FROM orders');
+        const nextNum = ((idRows as any[])[0]?.maxNum ?? 0) + 1;
+        const orderId = 'o' + nextNum;
+
+        // 2. 扣库存
+        for (const item of items) {
+            await conn.query('UPDATE products SET stock = stock - ? WHERE id = ?', [item.qty, item.productId]);
+        }
+
+        // 3. 插入订单 + 订单项
+        const order: Order = {
+            id: orderId,
+            customerName,
+            items: orderItems,
+            totalAmount,
+            status: 'pending',
+            riskLevel: totalAmount >= 5000 ? 'high' : totalAmount >= 1000 ? 'medium' : 'low',
+            createdAt: new Date().toISOString(),
+        };
+        await conn.query(
+            'INSERT INTO orders (id, customer_name, total_amount, status, risk_level, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+            [order.id, order.customerName, order.totalAmount, order.status, order.riskLevel, new Date()]
+        );
+        for (const item of orderItems) {
+            await conn.query(
+                'INSERT INTO order_items (order_id, product_id, name, qty, price) VALUES (?, ?, ?, ?, ?)',
+                [order.id, item.productId, item.name, item.qty, item.price]
+            );
+        }
+
+        await conn.commit();
+        return { ok: true, order };
+    } catch (e) {
+        await conn.rollback();   // 出错：撤销一切
+        throw e;
+    } finally {
+        conn.release();          // 归还连接
     }
-
-    // 第二遍：扣库存
-    for (const d of toDeduct) d.product.stock -= d.qty;
-
-    // 生成订单
-    const order: Order = {
-        id: 'o' + nextOrderId++,
-        customerName,
-        items: orderItems,
-        totalAmount,
-        status: 'pending',
-        riskLevel: totalAmount >= 5000 ? 'high' : totalAmount >= 1000 ? 'medium' : 'low',
-        createdAt: new Date().toISOString(),
-    };
-    orders.push(order);
-    return { ok: true, order };
 }
 
 // 更新订单状态
@@ -95,52 +168,67 @@ const NEXT_STATUS: Record<OrderStatus, OrderStatus[]> = {
     completed: [],
     cancelled: [],
 };
-export function updateOrderStatus(
+export async function updateOrderStatus(
     orderId: string,
     nextStatus: OrderStatus
-): { ok: true; order: Order } | { ok: false; error: string } {
+): Promise<{ ok: true; order: Order } | { ok: false; error: string }> {
     // 校验
-    const order = orders.find(o => o.id === orderId);
+    const order = await getOrder(orderId);
     if (!order) return { ok: false, error: '订单不存在' };
     if (!NEXT_STATUS[order.status].includes(nextStatus)) return { ok: false, error: `不允许从 ${order.status} 流转到 ${nextStatus}` };
 
     // 3. 如果目标是 'cancelled' → 退还库存（createOrder 扣库存的镜像操作）
-    if (nextStatus === 'cancelled') {
-        for (const item of order.items) {
-            const product = products.find(p => p.id === item.productId);
-            product!.stock += item.qty;
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        if (nextStatus === 'cancelled') {
+            for (const item of order.items) {
+                await conn.query('UPDATE products SET stock = stock + ? WHERE id = ?', [item.qty, item.productId]);
+            }
         }
+
+        await conn.query('UPDATE orders SET status = ? WHERE id = ?', [nextStatus, orderId]);
+        order.status = nextStatus;
+        await conn.commit();
+    } catch (err) {
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
     }
 
-    order.status = nextStatus;
     return { ok: true, order };
 }
 
 // 处理订单
-export function processOrder(orderId: string) {
-    const order = orders.find(o => o.id === orderId);
+export async function processOrder(orderId: string) {
+    const order = await getOrder(orderId);
     if (!order) return { ok: false, error: '该订单不存在' };
     if (order.status !== 'pending') return { ok: false, error: `当前订单的状态已为${order.status}，无法处理。` }
 
-    const res1 = updateOrderStatus(orderId, 'processing');
+    const res1 = await updateOrderStatus(orderId, 'processing');
     if (!res1.ok) return res1;
 
     const lowStockProducts: Product[] = [];
 
     for (let item of order.items) {
-        const product = products.find(p => p.id === item.productId);
+        const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [item.productId]);
+        const product = (rows as any[])[0];
         if (!product) return { ok: false, error: `未找到商品：${item.name}` }
 
-        if (product?.stock < product.restockThreshold) {
-            lowStockProducts.push(product);
+        // 注意：SQL 行是 snake_case（restock_threshold），且要映射成 Product 类型再返回
+        if (product.stock < product.restock_threshold) {
+            lowStockProducts.push(mapRowToProduct(product));
         }
     }
 
-    const res2 = updateOrderStatus(orderId, 'completed');
+    const res2 = await updateOrderStatus(orderId, 'completed');
     if (!res2.ok) return res2;
 
     if (lowStockProducts.length === 0) return res2;
-    return { ok: true, order, lowStockWarnings: lowStockProducts }
+    // 注意：order 是开头 getOrder 的旧快照（pending），必须用 res2.order（已 completed）
+    return { ok: true, order: res2.order, lowStockWarnings: lowStockProducts }
 }
 
 // 补货
@@ -148,14 +236,18 @@ function isPositiveInteger(num: number): boolean {
     return /^[1-9]\d*$/.test(String(num));
 }
 
-export function restockProduct(productId: string, qty: number) {
-    const product = products.find(p => p.id === productId);
+export async function restockProduct(productId: string, qty: number) {
+    if (!isPositiveInteger(qty)) return { ok: false, error: '补货数量应为正整数' };
+
+    // 先 SELECT 校验存在（UPDATE 不存在的行也"成功"，不能靠它判断）
+    const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [productId]);
+    const product = (rows as any[])[0];
     if (!product) return { ok: false, error: '该商品不存在' };
 
-    if (!isPositiveInteger(qty)) return { ok: false, error: '补货数量应为正整数' };
-    product.stock += qty;
+    await pool.query('UPDATE products SET stock = stock + ? WHERE id = ?', [qty, productId]);
 
-    return { ok: true, product };
+    // UPDATE 不返回新值：手动算（原库存 + qty）填进返回
+    return { ok: true, product: { ...mapRowToProduct(product), stock: product.stock + qty } };
 }
 
 // TODO 调价，该功能和补货写法的逻辑十分类似，很容易写

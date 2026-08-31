@@ -1,0 +1,1 @@
+import pool from 'mysql2/promise';
