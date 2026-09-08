@@ -16,7 +16,7 @@ interface AgentMessage {
     }[];
 }
 
-// Agent所调用的ToolCall信息
+// Agetool_resultnt所调用的ToolCall信息
 export interface ToolCall {
     id: string;          // 指令编号，后面按它收结果
     name: string;
@@ -29,9 +29,12 @@ export type Step =
     | { toolCalls: ToolCall[] };
 
 // Agent决定器
-export type Decide = (messages: AgentMessage[]) => Promise<Step>;
+export type Decide = (messages: AgentMessage[], onText: (text: string) => void) => Promise<Step>;
 
 const MAX_TURNS = 5;   // 保险：防 LLM 死循环无限调工具
+
+// BUG 测试过程中换了测试数据并再次发出总览请求，但模型记得之前的总览导致它选择将之前的测试数据直接返回了
+// 解决：在提示词中添加特别注意，让模型忘记之前的一切调用，只做纯粹的业务处理
 const SYSTEM_PROMPT = `
 角色：你是一个电商业务运营助手，
 能力边界：只能通过提供的工具操作业务系统，工具没覆盖的事情要做不到就明说，不能瞎编，
@@ -58,9 +61,14 @@ export type AgentEvent =
         toolName: string;
         args: Record<string, unknown>;  // 参数快照：前端展示"要取消订单 o1？"
     }
+    | {
+        type: 'answer_delta';
+        content: string;   // LLM 生成过程中的一段文字，实时推到前端
+    }
     | { type: 'done'; content: string }
     | { type: 'error'; error: string };
 
+// TODO SSE事件 id/Last-Event-ID 断点续传
 export async function runAgent(
     prompt: string,
     decide: Decide,
@@ -72,7 +80,9 @@ export async function runAgent(
     ];
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-        const step = await decide(messages);
+        const step = await decide(messages, (text) => {
+            onEvent?.({ type: 'answer_delta', content: text });
+        }); // decide就是createDecide的返回结果，用来向模型发送请求
 
         if ('content' in step) return step.content;
 

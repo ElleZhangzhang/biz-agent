@@ -292,3 +292,5 @@ export async function restockProduct(productId: string, qty: number) {
 // TODO 调价，该功能和补货写法的逻辑十分类似，很容易写
 
 // TODO 获取库存数低于low的
+
+// TODO 获取o1订单的信息

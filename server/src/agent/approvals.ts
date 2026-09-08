@@ -60,6 +60,8 @@ export async function listApprovals(): Promise<ApprovalRequest[]> {
 // 跨 HTTP 请求靠共享模块内存的 waiters Map 传递结果，重启后挂起审批丢失可接受
 const waiters = new Map<string, (r: ApprovalRequest) => void>();
 
+
+// LIGHT 人工审批机制的实现key
 export async function decideApproval(
     id: string,
     decision: ApprovalDecision
@@ -68,7 +70,6 @@ export async function decideApproval(
     if (!request) return { ok: false, error: `审批单不存在: ${id}` };
     if (request.status !== 'pending') return { ok: false, error: '该审批单已处理' };
 
-    // 决定结果落库
     await pool.query(
         'UPDATE approvals SET status = ?, decided_by = ?, resolved_at = ? WHERE id = ?',
         [decision, 'user', new Date(), id]
@@ -76,13 +77,13 @@ export async function decideApproval(
     request.status = decision;
     request.decidedAt = new Date().toISOString();
 
-    // ★ 机关：处理完，通知等在门口的人
-    waiters.get(id)?.(request);   // 找到等这张单的人，把结果塞给它
-    waiters.delete(id);           // 通知完了，把留言板上号码擦掉
+    waiters.get(id)?.(request);
+    waiters.delete(id);
 
     return { ok: true, request };
 }
 
+// HACK 审批超时自动拒绝
 export function waitForApproval(id: string): Promise<ApprovalRequest> {
     return new Promise((resolve) => { waiters.set(id, resolve); });
 }

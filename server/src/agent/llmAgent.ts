@@ -1,11 +1,11 @@
 import OpenAI from "openai";
-import type { ChatCompletionMessageParam, ChatCompletionMessageFunctionToolCall } from "openai/resources/chat/completions/completions.js";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions.js";
 import { Decide } from "@/agent/agentLoop.js";
 import { TOOLS } from "@/agent/tools.js";
 
 export function createLLMDecide(client: OpenAI, model: string): Decide {
-    return async (messages) => {
-        const result = await client.chat.completions.create({
+    return async (messages, onText) => {
+        const stream = await client.chat.completions.create({
             model,
             messages: messages as ChatCompletionMessageParam[],   // 手写类型更宽松，只在边界层收窄
             tools: TOOLS.map(t => ({
@@ -17,26 +17,44 @@ export function createLLMDecide(client: OpenAI, model: string): Decide {
                 },
             })),
             tool_choice: 'auto',   // 让模型自己决定调不调工具
+            stream: true,
         });
 
-        const msg = result.choices[0].message;
+        let content = '';
+        const toolCalls: { id: string; name: string; arguments: string }[] = [];
 
-        // 分支一：ToolCalls
-        if (msg.tool_calls?.length) {
+        for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta;
+            if (!delta) continue;
+
+            if (delta.content) {
+                content += delta.content;
+                onText(delta.content);
+            }
+
+            // 流式的工具调用会被拆成几十片（名字一片、参数按 token 一片片来）
+            for (const piece of delta.tool_calls ?? []) {
+                const slot = (toolCalls[piece.index] ??= { id: '', name: '', arguments: '' });
+                if (piece.id) slot.id = piece.id;
+                if (piece.function?.name) slot.name = piece.function.name;
+                if (piece.function?.arguments) slot.arguments += piece.function.arguments;
+            }
+        }
+
+        if (toolCalls.length) {
             return {
-                toolCalls: msg.tool_calls
-                    .filter((tc): tc is ChatCompletionMessageFunctionToolCall => tc.type === 'function')
+                toolCalls: toolCalls
+                    .filter(tc => tc.name)   // 防模型只发了半截碎片
                     .map(tc => ({
                         id: tc.id,
-                        name: tc.function.name,
-                        arguments: tc.function.arguments,
+                        name: tc.name,
+                        arguments: tc.arguments,
                     })),
             };
         }
 
-        // 分支二：content
         return {
-            content: msg.content ?? ''
+            content
         };
     };
 }
