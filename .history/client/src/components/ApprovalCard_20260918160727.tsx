@@ -8,20 +8,20 @@ function ApprovalCard({ approvalId, toolName, args, onError }: {
     args: Record<string, unknown>;
     onError: (text: string) => void;
 }) {
-    const [result, setResult] = useState<'pending' | ApprovalDecision>('pending');
-    const [phase, addOptimistic] = useOptimistic(result, (_cur, next: ApprovalDecision) => next);
-    const [, startTransition] = useTransition();
+    const [result, setResult] = useState<'pending' | ApprovalDecision>('pending');   // 真实状态：请求成功后落定
+    const [phase, addOptimistic] = useOptimistic(result, (_cur, next: ApprovalDecision) => next);  // 展示状态
+    const [, startTransition] = useTransition();   // 提供"过渡期"：addOptimistic 的合法容器
 
     function handleDecide(decision: ApprovalDecision) {
         if (phase !== 'pending') return;
         startTransition(async () => {
-            addOptimistic(decision);
+            addOptimistic(decision);            // ① 立刻显示"已同意/已拒绝"
             try {
                 await decideApproval(approvalId, decision);
-                setResult(decision);
+                setResult(decision);            // ② 真实状态落定 → 乐观值无缝衔接，不会闪回
             } catch (e) {
-                // 失败则通过transition自动回滚成 原值'pending'
                 onError(e instanceof Error ? e.message : String(e));
+                // ③ 不 setResult：transition 结束 → 自动回滚成 pending
             }
         });
     }

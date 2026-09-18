@@ -107,7 +107,8 @@ function AgentConsole() {
     const formRef = useRef<HTMLFormElement | null>(null);
     const inputRef = useRef<InputRef | null>(null);
 
-    const charQueueRef = useRef<string[]>([]);
+    // —— 打字机平滑层：生产者在 action 里入队，消费者是这个定时器 ——
+    const charQueueRef = useRef<string[]>([]);   // 字符队列
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     function startTyping() {

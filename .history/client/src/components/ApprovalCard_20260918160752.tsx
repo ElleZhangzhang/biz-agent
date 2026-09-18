@@ -15,13 +15,13 @@ function ApprovalCard({ approvalId, toolName, args, onError }: {
     function handleDecide(decision: ApprovalDecision) {
         if (phase !== 'pending') return;
         startTransition(async () => {
-            addOptimistic(decision);
+            addOptimistic(decision);            // ① 立刻显示"已同意/已拒绝"
             try {
                 await decideApproval(approvalId, decision);
-                setResult(decision);
+                setResult(decision);            // ② 真实状态落定 → 乐观值无缝衔接，不会闪回
             } catch (e) {
-                // 失败则通过transition自动回滚成 原值'pending'
                 onError(e instanceof Error ? e.message : String(e));
+                // ③ 不 setResult：transition 结束 → 自动回滚成 pending
             }
         });
     }

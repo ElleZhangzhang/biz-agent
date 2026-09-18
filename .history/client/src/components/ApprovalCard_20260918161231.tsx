@@ -20,7 +20,6 @@ function ApprovalCard({ approvalId, toolName, args, onError }: {
                 await decideApproval(approvalId, decision);
                 setResult(decision);
             } catch (e) {
-                // 失败则通过transition自动回滚成 原值'pending'
                 onError(e instanceof Error ? e.message : String(e));
             }
         });

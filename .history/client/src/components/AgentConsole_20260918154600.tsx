@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Input, Tag } from 'antd';
+import { Alert, Card, Input, Tag, Button } from 'antd';
 import type { InputRef } from 'antd';
 import { useActionState, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -106,8 +106,20 @@ function AgentConsole() {
 
     const formRef = useRef<HTMLFormElement | null>(null);
     const inputRef = useRef<InputRef | null>(null);
+    // const [input, setInput] = useState('');
+    // const [streaming, setStreaming] = useState(false);
 
-    const charQueueRef = useRef<string[]>([]);
+
+
+
+    const [, sendAction, isPending] = useActionState(
+        async (prevValue: null, formData: FormData)
+    )
+
+
+
+
+    const charQueueRef = useRef<string[]>([]);   // 字符队列
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     function startTyping() {
@@ -135,49 +147,49 @@ function AgentConsole() {
 
     const pushError = (text: string) => setMessages((m) => [...m, { kind: 'error', text }]);
 
-    const [, sendAction, isPending] = useActionState(
-        async (_prev: null, formData: FormData) => {
-            const prompt = String(formData.get('prompt') ?? '').trim();
-            if (!prompt) return null;
+    async function handleSend() {
+        const prompt = input.trim();
+        if (!prompt || streaming) return;
+        setInput('');
+        setMessages((prev) => prev.filter((m) => m.kind !== 'answer_stream'));
+        stopTyping();
+        charQueueRef.current = [];
+        setStreaming(true);
 
-            formRef.current?.reset();
-            inputRef.current?.focus();
+        try {
+            await runAgentStream(prompt, (event) => {
+                if (event.type === 'answer_delta') {
+                    charQueueRef.current.push(...Array.from(event.content));
+                    startTyping();
+                } else if (event.type === 'done') {
 
-            setMessages((prev) => prev.filter((m) => m.kind !== 'answer_stream'));
-            stopTyping();
-            charQueueRef.current = [];
-            setMessages((m) => [...m, { kind: 'user', text: prompt }]);
+                    stopTyping();
+                    charQueueRef.current = [];
 
-            try {
-                await runAgentStream(prompt, (event) => {
-                    if (event.type === 'answer_delta') {
-                        charQueueRef.current.push(...Array.from(event.content));
-                        startTyping();
-                    } else if (event.type === 'done') {
-                        stopTyping();
-                        charQueueRef.current = [];
-                        setMessages((messages) => {
-                            const last = messages[messages.length - 1];
-                            if (last?.kind === 'answer_stream') {
-                                return [...messages.slice(0, -1), { kind: 'answer', text: event.content }];
-                            }
-                            return [...messages, { kind: 'answer', text: event.content }];
-                        });
-                    } else {
-                        setMessages((m) => [...m, toConsoleMsg(event)]);
-                    }
-                })
-            } catch (e) {
-                setMessages((m) => [...m, {
-                    kind: 'error',
-                    text: e instanceof Error ? e.message : String(e)
-                }])
-            }
+                    setMessages((messages) => {
+                        const last = messages[messages.length - 1];
+                        if (last?.kind === 'answer_stream') {
+                            return [...messages.slice(0, -1), { kind: 'answer', text: event.content }];
+                        }
+                        return [...messages, {
+                            kind: 'answer',
+                            text: event.content
+                        }];
+                    });
+                } else {
+                    setMessages((m) => [...m, toConsoleMsg(event)]);
+                }
+            })
+        } catch (e) {
+            setMessages((m) => [...m, {
+                kind: 'error',
+                text: e instanceof Error ? e.message : String(e)
+            }])
+        } finally {
+            setStreaming(false);
+        }
 
-            return null;
-        },
-        null,   // 初始 state：用不上，占位
-    );
+    }
 
     return (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -185,19 +197,15 @@ function AgentConsole() {
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginBottom: 12 }}>
                 {messages.map((m, i) => <Message key={i} m={m} onError={pushError} />)}
             </div>
-            {/* 输入区：原生表单 + Actions。Enter/点按钮都走 submit；
-                pending 期间禁用输入框——既防重复提交，也防 action 结束时的自动重置吃掉用户刚打的下一句 */}
-            <form ref={formRef} action={sendAction} style={{ display: 'flex', gap: 8 }}>
-                <Input
-                    ref={inputRef}
-                    name="prompt"
-                    placeholder="跟 Agent 说点什么…"
-                    disabled={isPending}
-                    autoComplete="off"
-                    style={{ flex: 1 }}
-                />
-                <Button type="primary" htmlType="submit" loading={isPending}>发送</Button>
-            </form>
+            {/* 输入区：固定在板块底部，回车或点按钮发送，streaming 时禁用 */}
+            <Input.Search
+                placeholder="跟 Agent 说点什么…"
+                enterButton="发送"
+                value={input}
+                loading={streaming}
+                onChange={(e) => setInput(e.target.value)}
+                onSearch={handleSend}
+            />
         </div>
     );
 }
