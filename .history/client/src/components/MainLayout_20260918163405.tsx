@@ -12,10 +12,15 @@ function MainLayout() {
     const location = useLocation();
     const { username, logout } = useAuthStore();
 
+    // 启动/刷新时校验会话：本地有 token 不代表它还有效（可能已过期）
+    // 失败无需在这里处理——401 已由请求层统一接管（清会话 + 跳登录页）
     useEffect(() => {
-        me().catch(() => { });
+        me().catch(() => {});
     }, []);
 
+    // <Activity> 保活（React 19.2）：hidden 时保留组件状态（控制台对话、滚动位置）
+    // 但隐藏 DOM、暂停 effects；切回来状态原样还在——这是 Outlet 卸载式路由做不到的
+    // 注意：hidden 会触发 effect cleanup，将来给 Agent 流加 AbortController 时要协调"切页"语义
     const onOrders = location.pathname.startsWith('/app/orders');
 
     return (

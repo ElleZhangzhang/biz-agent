@@ -5,8 +5,6 @@ import Home from '@/pages/Home';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import MainLayout from '@/components/MainLayout';
-import OverviewPage from '@/pages/OverviewPage';
-import OrdersPage from '@/pages/OrdersPage';
 import { useAuthStore } from '@/stores/authStore';
 import { setUnauthorizedHandler } from '@/api/http';
 
@@ -36,11 +34,12 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                {/* 登录后的主框架，下面挂两个页面 */}
+                {/* 登录后的主框架。overview / orders 只声明路径、不挂 element：
+                    两个页面由 MainLayout 用 <Activity> 保活渲染（不再是 Outlet 的"卸载式"切换） */}
                 <Route path="/app" element={<RequireAuth><MainLayout /></RequireAuth>}>
                     <Route index element={<Navigate to="/app/overview" replace />} />
-                    <Route path="overview" element={<OverviewPage />} />
-                    <Route path="orders" element={<OrdersPage />} />
+                    <Route path="overview" />
+                    <Route path="orders" />
                 </Route>
                 {/* 兜底：未知路径回首页 */}
                 <Route path="*" element={<Navigate to="/" replace />} />
