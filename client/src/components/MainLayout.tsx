@@ -1,12 +1,20 @@
+import { useEffect } from 'react';
 import { Button, Layout, Menu, Typography } from 'antd';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { me } from '@/api/auth';
 
 // 登录后的主框架：顶部栏（用户名 + 退出）+ 左侧栏（两个菜单项）+ 内容区
 function MainLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const { username, logout } = useAuthStore();
+
+    // 启动/刷新时校验会话：本地有 token 不代表它还有效（可能已过期）
+    // 失败无需在这里处理——401 已由请求层统一接管（清会话 + 跳登录页）
+    useEffect(() => {
+        me().catch(() => {});
+    }, []);
 
     return (
         <Layout style={{ minHeight: '100vh' }}>

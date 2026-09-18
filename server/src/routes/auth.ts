@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { register, login, getUserByToken } from "@/auth.js";
+import { register, login } from "@/auth.js";
+import { requireAuth } from "@/middleware/auth.js";
 
 const router = Router();
 
@@ -23,13 +24,9 @@ router.post('/login', async (req, res) => {
     res.status(r.ok ? 200 : 401).json(r);
 });
 
-router.get('/me', async (req, res) => {
-    const auth = req.headers.authorization ?? '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    const username = await getUserByToken(token);
-    if (!username) return res.status(401).json({ ok: false, error: '登录已过期，请重新登录' });
-
-    res.status(200).json({ ok: true, data: { username } });
+// 校验 token 还有效：解析交给 requireAuth，本路由只管把用户回给前端
+router.get('/me', requireAuth, (_req, res) => {
+    res.status(200).json({ ok: true, data: { username: res.locals.username } });
 });
 
 export default router;

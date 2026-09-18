@@ -1,9 +1,4 @@
-async function get<T>(url: string): Promise<T> {
-    const res = await fetch(url);
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error ?? '请求失败');
-    return json.data as T;
-}
+import { request } from '@/api/http';
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
     pending: '待处理', processing: '处理中',
@@ -31,7 +26,7 @@ export interface Overview {
 }
 
 export function getOverview(): Promise<Overview> {
-    return get<Overview>('/api/business/overview');
+    return request<Overview>('/api/business/overview');
 }
 //#endregion
 
@@ -57,6 +52,6 @@ export interface Order {
 }
 
 export function getOrders(): Promise<Order[]> {
-    return get<Order[]>('/api/business/orders');
+    return request<Order[]>('/api/business/orders');
 }
 //#endregion

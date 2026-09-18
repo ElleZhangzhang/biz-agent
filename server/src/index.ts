@@ -5,6 +5,7 @@ import agentRouter from '@/routes/agent.js';
 import approvalRouter from '@/routes/approvals.js'
 import authRouter from '@/routes/auth.js';
 import simulatorRouter from '@/routes/simulator.js';
+import { requireAuth } from '@/middleware/auth.js'
 import { testConnection } from '@/db.js'
 import { seedProductsIfEmpty } from '@/business/system.js'
 
@@ -19,11 +20,12 @@ app.get('/api/health', (_req, res) => {
     });
 });
 
-app.use('/api/business', businessRouter);
-app.use('/api/agent', agentRouter);
-app.use('/api/approvals', approvalRouter);
+// 除 /api/health 和 /api/auth（登录/注册本身）外，全部要求有效 token
+app.use('/api/business', requireAuth, businessRouter);
+app.use('/api/agent', requireAuth, agentRouter);
+app.use('/api/approvals', requireAuth, approvalRouter);
 app.use('/api/auth', authRouter);
-app.use('/api/simulator', simulatorRouter);
+app.use('/api/simulator', requireAuth, simulatorRouter);
 
 await testConnection();
 await seedProductsIfEmpty();   // products 表空才写入 seed 商品（幂等）

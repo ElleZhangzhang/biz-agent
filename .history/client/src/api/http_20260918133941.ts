@@ -1,0 +1,39 @@
+import { useAuthStore } from '@/stores/authStore';
+
+export class ApiError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+    }
+}
+
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: () => void) {
+    onUnauthorized = fn;
+}
+
+export function handleUnauthorized() {
+    useAuthStore.getState().logout();
+    onUnauthorized?.();
+}
+
+export async function request<T>(url: string, init?: RequestInit): Promise<T> {
+    let res: Response;
+    try {
+        res = await fetch(url, init);
+    } catch {
+        throw new ApiError('网络异常，请检查网络连接', 0);
+    }
+
+    if (res.status === 401) handleUnauthorized();
+
+    const body = (await res.json().catch(() => null)) as
+        { ok?: boolean; error?: string; data?: unknown } | null;
+
+    if (!res.ok) throw new ApiError(body?.error ?? `请求失败（${res.status}）`, res.status);
+    if (body?.ok === false) throw new ApiError(body.error ?? '操作失败', res.status);
+
+    return (body && 'data' in body ? body.data : body) as T;
+}

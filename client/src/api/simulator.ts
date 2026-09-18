@@ -1,3 +1,5 @@
+import { request } from '@/api/http';
+import { useAuthStore } from '@/stores/authStore';
 import type { Order } from '@/api/business';
 
 // #region 模拟顾客控制
@@ -6,26 +8,14 @@ export interface SimulatorStatus {
     orderCount: number;
 }
 
-async function request(url: string, method: 'GET' | 'POST' = 'GET'): Promise<SimulatorStatus> {
-    const res = await fetch(url, { method });
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error ?? '请求失败');
-    return json.data as SimulatorStatus;
-}
-
-export function getSimulatorStatus() { return request('/api/simulator/status'); }
-export function startSimulator() { return request('/api/simulator/start', 'POST'); }
-export function stopSimulator() { return request('/api/simulator/stop', 'POST'); }
+export function getSimulatorStatus() { return request<SimulatorStatus>('/api/simulator/status'); }
+export function startSimulator() { return request<SimulatorStatus>('/api/simulator/start', { method: 'POST' }); }
+export function stopSimulator() { return request<SimulatorStatus>('/api/simulator/stop', { method: 'POST' }); }
 //#endregion
 
 // 最近订单流历史（服务端内存缓冲）：页面打开先拉这个，实时流不用从 0 开始
 export function getSimOrderHistory(): Promise<SimEvent[]> {
-    return fetch('/api/simulator/history')
-        .then((res) => res.json())
-        .then((json) => {
-            if (!json.ok) throw new Error(json.error ?? '获取订单流失败');
-            return json.data as SimEvent[];
-        });
+    return request<SimEvent[]>('/api/simulator/history');
 }
 
 // SSE 推送的事件（服务端广播）
@@ -36,7 +26,10 @@ export type SimEvent =
 // 订阅新单广播：页面挂载时调用，返回清理函数（卸载时 close 连接）
 // 断线 EventSource 会自动重连，不用手动处理
 export function subscribeSimEvents(onEvent: (event: SimEvent) => void): () => void {
-    const es = new EventSource('/api/simulator/events');
+    // 原生 EventSource 不能自定义请求头（这正是很多 AI 项目改用 fetch 读流的原因），
+    // 所以 token 只能走 query 交给后端中间件——代价是它会出现在 URL/访问日志里
+    const token = useAuthStore.getState().token ?? '';
+    const es = new EventSource(`/api/simulator/events?token=${encodeURIComponent(token)}`);
     es.onmessage = (e) => {
         try {
             onEvent(JSON.parse(e.data) as SimEvent);
