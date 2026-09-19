@@ -79,7 +79,6 @@ export async function listOrders(status?: OrderStatus): Promise<Order[]> {
 
     // 2. 解决方法:分为两步,LEFT JOIN + JS Map
     // (1) LEFT JOIN通过平铺查询组合订单和订单中的商品明细
-    // orders LEFT JSON order_items ON orders.id=order_items.order_id
     const sql = status
         ? `SELECT o.id, o.customer_name, o.total_amount, o.status, o.risk_level, o.created_at,
                   oi.product_id, oi.name AS item_name, oi.qty, oi.price
@@ -143,10 +142,6 @@ export async function createOrder(
         const orderItems: OrderItem[] = [];
         let totalAmount = 0;
         for (const item of items) {
-
-            // LIGHT for update锁住行（悲观锁），防止并发超卖
-            // （1）悲观锁：无论有没有冲突都锁住数据
-            // （2）乐观锁：操作时通过版本号检查是否有修改，版本号对不上就失败
             const [rows] = await conn.query(
                 'SELECT id, name, price, stock FROM products WHERE id = ? FOR UPDATE',
                 [item.productId]
@@ -212,8 +207,6 @@ const NEXT_STATUS: Record<OrderStatus, OrderStatus[]> = {
     completed: [],
     cancelled: [],
 };
-
-// LIGHT 事务保证"下单扣库存 / 取消退库存"的原子性
 export async function updateOrderStatus(
     orderId: string,
     nextStatus: OrderStatus
@@ -223,31 +216,25 @@ export async function updateOrderStatus(
     if (!order) return { ok: false, error: '订单不存在' };
     if (!NEXT_STATUS[order.status].includes(nextStatus)) return { ok: false, error: `不允许从 ${order.status} 流转到 ${nextStatus}` };
 
-    // getConnection 从连接池拿连接
+    // 从连接池拿连接
     const conn = await pool.getConnection();
     try {
-        // beginTransaction 开启事务
+        // 开启事务
         await conn.beginTransaction();
 
-        // 选用事务的原因：两个操作一起成功、一起失败，成功了就commit，失败了就一起回滚
-        // （1）退还库存
         if (nextStatus === 'cancelled') {
             for (const item of order.items) {
                 await conn.query('UPDATE products SET stock = stock + ? WHERE id = ?', [item.qty, item.productId]);
             }
         }
-        // （2）修改状态
+
         await conn.query('UPDATE orders SET status = ? WHERE id = ?', [nextStatus, orderId]);
         order.status = nextStatus;
-
-        // commit 事务成功则提交
         await conn.commit();
     } catch (err) {
-        // rollback 事务失败则回滚到之前的状态
         await conn.rollback();
         throw err;
     } finally {
-        // release 释放连接
         conn.release();
     }
 

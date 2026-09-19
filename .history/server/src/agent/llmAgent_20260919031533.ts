@@ -32,8 +32,7 @@ export function createLLMDecide(client: OpenAI, model: string): Decide {
                 onText(delta.content);
             }
 
-            // 流式的工具调用是结构化的JSON，name一片，参数一片。
-            // 每个 delta.tool_calls 碎片都带有一个 index 索引，需要用这个索引把属于同一个工具调用的碎片归拢到一起
+            // 流式的工具调用是结构化的JSON，name一片，参数一片，所以需要用index进行合并
             for (const piece of delta.tool_calls ?? []) {
                 const slot = (toolCalls[piece.index] ??= { id: '', name: '', arguments: '' });
                 if (piece.id) slot.id = piece.id;

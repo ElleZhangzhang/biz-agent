@@ -126,8 +126,6 @@ function AgentConsole() {
 
     const charQueueRef = useRef<string[]>([]);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const controllerRef = useRef<AbortController | null>(null);   // 本次流式请求的"断电开关"
-    const stopRequestedRef = useRef(false);                       // 是"用户点了停止"还是"真报错"
 
     // LIGHT 打字机式渲染：闭包+队列
     function startTyping() {
@@ -165,12 +163,6 @@ function AgentConsole() {
         [],
     );
 
-    // 用户点"停止"：先记意图、再断开——只判 AbortError 不可靠（异常会被请求层/库改写）
-    function handleStop() {
-        stopRequestedRef.current = true;
-        controllerRef.current?.abort();
-    }
-
     const [, sendAction, isPending] = useActionState(
         async (_prev: null, formData: FormData) => {
             const prompt = String(formData.get('prompt') ?? '').trim();
@@ -183,10 +175,6 @@ function AgentConsole() {
             stopTyping();
             charQueueRef.current = [];
             setMessages((m) => [...m, { kind: 'user', text: prompt }]);
-
-            // 每次发送配一个新 controller：停止按钮通过它掐断请求
-            stopRequestedRef.current = false;
-            controllerRef.current = new AbortController();
 
             try {
                 await runAgentStream(prompt, (event) => {
@@ -208,25 +196,12 @@ function AgentConsole() {
                     } else {
                         setMessages((m) => [...m, toConsoleMsg(event)]);
                     }
-                }, controllerRef.current.signal)
+                })
             } catch (e) {
-                if (stopRequestedRef.current) {
-                    // 用户主动停止：保留已生成的部分，把气泡定格成完成态（done 不会再来了）
-                    stopTyping();
-                    charQueueRef.current = [];
-                    setMessages((msgs) => {
-                        const last = msgs[msgs.length - 1];
-                        if (last?.kind !== 'answer_stream') return msgs;
-                        return [...msgs.slice(0, -1), { kind: 'answer', text: last.text }];
-                    });
-                } else {
-                    setMessages((m) => [...m, {
-                        kind: 'error',
-                        text: e instanceof Error ? e.message : String(e)
-                    }])
-                }
-            } finally {
-                controllerRef.current = null;   // 收尾：别留引用
+                setMessages((m) => [...m, {
+                    kind: 'error',
+                    text: e instanceof Error ? e.message : String(e)
+                }])
             }
 
             return null;
@@ -251,8 +226,7 @@ function AgentConsole() {
                     autoComplete="off"
                     style={{ flex: 1 }}
                 />
-                <Button type="primary" htmlType="submit" loading={isPending} disabled={isPending}>发送</Button>
-                {isPending && <Button danger onClick={handleStop}>停止</Button>}
+                <Button type="primary" htmlType="submit" loading={isPending}>发送</Button>
             </form>
         </div>
     );

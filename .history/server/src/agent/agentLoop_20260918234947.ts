@@ -1,6 +1,5 @@
 import { TOOLS } from "@/agent/tools.js";
 import { createApproval, waitForApproval } from "@/agent/approvals.js";
-import { stringify } from "node:querystring";
 
 // Agent对话的类型
 interface AgentMessage {
@@ -77,7 +76,7 @@ export type AgentEvent =
 //     (1)content 返回最终总结
 //     (2)toolcalls 遍历执行callbacks，并将每个执行结果回注到messages 
 
-// LIGHT 广播toolcalls
+// LIGHT 广播
 // 1. 广播调用工具
 // 2. 广播某调用工具的调用结果
 
@@ -85,7 +84,6 @@ export async function runAgent(
     prompt: string,
     decide: Decide,
     onEvent?: (event: AgentEvent) => void,
-    shouldStop?: () => boolean,   // 客户端断开后返回 true：提前退出，别再调模型白烧 token
 ): Promise<string> {
     const messages: AgentMessage[] = [
         { role: 'system', content: SYSTEM_PROMPT },
@@ -93,8 +91,6 @@ export async function runAgent(
     ];
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-        if (shouldStop?.()) return '';   // 已取消：不再进入下一轮 LLM 调用
-
         // LLM决策
         const step = await decide(messages, (text) => {
             onEvent?.({ type: 'answer_delta', content: text });
@@ -160,9 +156,6 @@ export async function runAgent(
             messages.push({
                 role: 'tool',
                 tool_call_id: call.id,
-                // LIGHT stringify的目的
-                // 将真实内容的'\n\n'转义为'\\n\\n'，以免前端通过'\n\n'切割流式输出时从真实内容处切
-                // 如：data: { "type": "answer_delta", "content": "第一段内容\\n\\n第二段内容" }\n\n
                 content: JSON.stringify(result),
             });
         }

@@ -79,7 +79,6 @@ export async function listOrders(status?: OrderStatus): Promise<Order[]> {
 
     // 2. 解决方法:分为两步,LEFT JOIN + JS Map
     // (1) LEFT JOIN通过平铺查询组合订单和订单中的商品明细
-    // orders LEFT JSON order_items ON orders.id=order_items.order_id
     const sql = status
         ? `SELECT o.id, o.customer_name, o.total_amount, o.status, o.risk_level, o.created_at,
                   oi.product_id, oi.name AS item_name, oi.qty, oi.price
@@ -146,7 +145,7 @@ export async function createOrder(
 
             // LIGHT for update锁住行（悲观锁），防止并发超卖
             // （1）悲观锁：无论有没有冲突都锁住数据
-            // （2）乐观锁：操作时通过版本号检查是否有修改，版本号对不上就失败
+            // （2）乐观锁：操作时检查是否有修改
             const [rows] = await conn.query(
                 'SELECT id, name, price, stock FROM products WHERE id = ? FOR UPDATE',
                 [item.productId]

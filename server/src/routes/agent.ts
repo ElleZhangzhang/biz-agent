@@ -24,13 +24,18 @@ router.post('/run', async (req, res) => {
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
-    const send = (frame: AgentEvent) => res.write(`data: ${JSON.stringify(frame)}\n\n`)
+    // 客户端断开（用户点停止/关页面）后：不要再往已关闭的连接写帧，也别让循环继续跑
+    let cancelled = false;
+    res.on('close', () => { cancelled = true; });
+
+    const send = (frame: AgentEvent) => {
+        if (!cancelled) res.write(`data: ${JSON.stringify(frame)}\n\n`);
+    }
 
     // 接下来是请求大模型，然后将结果发给前端
     try {
         // loop过程:answer_delta/tool_call/approval_required/tool_result
-        const answer = await runAgent(prompt, decide, (event) => send(event)
-        );
+        const answer = await runAgent(prompt, decide, (event) => send(event), () => cancelled);
 
         // http:done
         send({

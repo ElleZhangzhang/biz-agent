@@ -1,6 +1,6 @@
 import { Alert, Button, Card, Input, Tag } from 'antd';
 import type { InputRef } from 'antd';
-import { memo, useActionState, useCallback, useEffect, useRef, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { runAgentStream, type AgentEvent } from '@/api/agent';
@@ -28,26 +28,8 @@ function toConsoleMsg(event: Exclude<AgentEvent, { type: 'answer_delta' } | { ty
     }
 }
 
-// 已完成段落：memo 浅比较 props——text 是字符串，按值比较，内容没变就跳过重渲染
-const Paragraph = memo(function Paragraph({ text }: { text: string }) {
-    return <p style={{ margin: 0 }}>{text}</p>;
-});
-
-function StreamingAnswer({ text }: { text: string }) {
-    const blocks = text.split('\n\n');
-    const tail = blocks[blocks.length - 1];
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {blocks.slice(0, -1).map((b, i) => <Paragraph key={i} text={b} />)}
-            <p style={{ margin: 0 }}>
-                {tail}
-                <span style={{ color: '#999' }}>▍</span>
-            </p>
-        </div>
-    );
-}
-
-const Message = memo(function Message({ m, onError }: { m: ConsoleMsg; onError: (text: string) => void }) {
+// 每种消息长什么样，抽成纯展示组件，主组件只管"列表+输入框"
+function Message({ m, onError }: { m: ConsoleMsg; onError: (text: string) => void }) {
     switch (m.kind) {
         case 'user':
             return (
@@ -82,7 +64,8 @@ const Message = memo(function Message({ m, onError }: { m: ConsoleMsg; onError: 
             return (
                 <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 8 }}>
                     <div style={{ background: '#f5f5f5', borderRadius: 8, padding: '8px 12px', maxWidth: '70%' }}>
-                        <StreamingAnswer text={m.text} />
+                        {m.text}
+                        <span style={{ color: '#999' }}>▍</span>
                     </div>
                 </div>
             );
@@ -116,7 +99,7 @@ const Message = memo(function Message({ m, onError }: { m: ConsoleMsg; onError: 
         case 'error':
             return <Alert type="error" message={m.text} style={{ marginBottom: 8 }} />;
     }
-});
+}
 
 function AgentConsole() {
     const [messages, setMessages] = useState<ConsoleMsg[]>([]);
@@ -126,8 +109,6 @@ function AgentConsole() {
 
     const charQueueRef = useRef<string[]>([]);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const controllerRef = useRef<AbortController | null>(null);   // 本次流式请求的"断电开关"
-    const stopRequestedRef = useRef(false);                       // 是"用户点了停止"还是"真报错"
 
     // LIGHT 打字机式渲染：闭包+队列
     function startTyping() {
@@ -159,17 +140,7 @@ function AgentConsole() {
     // 组件卸载时清计时器，防止泄漏
     useEffect(() => () => stopTyping(), []);
 
-    // 引用必须稳定：否则 memo 的 <Message> 每次都会因为 onError 是新函数而整体失效
-    const pushError = useCallback(
-        (text: string) => setMessages((m) => [...m, { kind: 'error', text }]),
-        [],
-    );
-
-    // 用户点"停止"：先记意图、再断开——只判 AbortError 不可靠（异常会被请求层/库改写）
-    function handleStop() {
-        stopRequestedRef.current = true;
-        controllerRef.current?.abort();
-    }
+    const pushError = (text: string) => setMessages((m) => [...m, { kind: 'error', text }]);
 
     const [, sendAction, isPending] = useActionState(
         async (_prev: null, formData: FormData) => {
@@ -184,10 +155,6 @@ function AgentConsole() {
             charQueueRef.current = [];
             setMessages((m) => [...m, { kind: 'user', text: prompt }]);
 
-            // 每次发送配一个新 controller：停止按钮通过它掐断请求
-            stopRequestedRef.current = false;
-            controllerRef.current = new AbortController();
-
             try {
                 await runAgentStream(prompt, (event) => {
                     if (event.type === 'answer_delta') {
@@ -198,35 +165,20 @@ function AgentConsole() {
                         charQueueRef.current = [];
                         setMessages((messages) => {
                             const last = messages[messages.length - 1];
-                            // 最后将之前的answer_delta全部删掉，替换成answer，用<ReactMarkdown>渲染
                             if (last?.kind === 'answer_stream') {
                                 return [...messages.slice(0, -1), { kind: 'answer', text: event.content }];
                             }
-                            // 这里是一次性全部返回完了，直接就到done帧了
                             return [...messages, { kind: 'answer', text: event.content }];
                         });
                     } else {
                         setMessages((m) => [...m, toConsoleMsg(event)]);
                     }
-                }, controllerRef.current.signal)
+                })
             } catch (e) {
-                if (stopRequestedRef.current) {
-                    // 用户主动停止：保留已生成的部分，把气泡定格成完成态（done 不会再来了）
-                    stopTyping();
-                    charQueueRef.current = [];
-                    setMessages((msgs) => {
-                        const last = msgs[msgs.length - 1];
-                        if (last?.kind !== 'answer_stream') return msgs;
-                        return [...msgs.slice(0, -1), { kind: 'answer', text: last.text }];
-                    });
-                } else {
-                    setMessages((m) => [...m, {
-                        kind: 'error',
-                        text: e instanceof Error ? e.message : String(e)
-                    }])
-                }
-            } finally {
-                controllerRef.current = null;   // 收尾：别留引用
+                setMessages((m) => [...m, {
+                    kind: 'error',
+                    text: e instanceof Error ? e.message : String(e)
+                }])
             }
 
             return null;
@@ -251,8 +203,7 @@ function AgentConsole() {
                     autoComplete="off"
                     style={{ flex: 1 }}
                 />
-                <Button type="primary" htmlType="submit" loading={isPending} disabled={isPending}>发送</Button>
-                {isPending && <Button danger onClick={handleStop}>停止</Button>}
+                <Button type="primary" htmlType="submit" loading={isPending}>发送</Button>
             </form>
         </div>
     );

@@ -34,13 +34,10 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                {/* 登录后的主框架。overview / orders 只声明路径、不挂 element：
-                    两个页面由 MainLayout 用 <Activity> 保活渲染（不再是 Outlet 的"卸载式"切换） */}
-                <Route path="/app" element={<RequireAuth><MainLayout /></RequireAuth>}>
-                    <Route index element={<Navigate to="/app/overview" replace />} />
-                    <Route path="overview" />
-                    <Route path="orders" />
-                </Route>
+                {/* /app 整棵子树归主框架：页面不交给 <Outlet> 渲染（那会卸载丢状态），
+                    而是由 MainLayout 用 <Activity> 保活两个页面——所以这里只需要一条 * 路由 */}
+                <Route path="/app" element={<Navigate to="/app/overview" replace />} />
+                <Route path="/app/*" element={<RequireAuth><MainLayout /></RequireAuth>} />
                 {/* 兜底：未知路径回首页 */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

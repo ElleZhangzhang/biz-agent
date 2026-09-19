@@ -85,7 +85,6 @@ export async function runAgent(
     prompt: string,
     decide: Decide,
     onEvent?: (event: AgentEvent) => void,
-    shouldStop?: () => boolean,   // 客户端断开后返回 true：提前退出，别再调模型白烧 token
 ): Promise<string> {
     const messages: AgentMessage[] = [
         { role: 'system', content: SYSTEM_PROMPT },
@@ -93,8 +92,6 @@ export async function runAgent(
     ];
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-        if (shouldStop?.()) return '';   // 已取消：不再进入下一轮 LLM 调用
-
         // LLM决策
         const step = await decide(messages, (text) => {
             onEvent?.({ type: 'answer_delta', content: text });

@@ -79,7 +79,6 @@ export async function listOrders(status?: OrderStatus): Promise<Order[]> {
 
     // 2. 解决方法:分为两步,LEFT JOIN + JS Map
     // (1) LEFT JOIN通过平铺查询组合订单和订单中的商品明细
-    // orders LEFT JSON order_items ON orders.id=order_items.order_id
     const sql = status
         ? `SELECT o.id, o.customer_name, o.total_amount, o.status, o.risk_level, o.created_at,
                   oi.product_id, oi.name AS item_name, oi.qty, oi.price

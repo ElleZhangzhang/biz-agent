@@ -64,7 +64,7 @@ const waiters = new Map<string, (r: ApprovalRequest) => void>();
 // LIGHT 人工审批机制：总的来讲是用 await Promise + map 实现的
 // 1. requireApproval为true → 创建订单 → 人工审批
 // 2. 调用人工审批函数，此函数会返回一个promise，并会将订单号放入map中，以订单号为key，以对应的resolve为value
-// 3. 当用户提交 同意/拒绝 的选择，会调用resolve传出选择结果并恢复执行，再根据结果决定是否执行函数
+// 3. 当用户提交 同意/拒绝 的选择，会调用resolve传出选择结果，再根据结果决定是否执行函数
 export async function decideApproval(
     id: string,
     decision: ApprovalDecision

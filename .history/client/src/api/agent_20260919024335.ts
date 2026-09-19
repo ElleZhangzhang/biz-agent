@@ -10,16 +10,15 @@ export type AgentEvent =
 
 export type ApprovalDecision = 'approved' | 'rejected';
 
+// TODO AbortController停止生成
 export async function runAgentStream(
     prompt: string,
     onEvent: (event: AgentEvent) => void,
-    signal?: AbortSignal,   // 外部可用它随时掐断本次流式请求（停止生成）
 ): Promise<void> {
     const res = await fetch('/api/agent/run', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ prompt }),
-        signal,
     });
 
     if (res.status === 401) handleUnauthorized();
